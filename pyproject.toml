@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pdf-redactor"
+version = "1.0.0"
+description = "GUI tool for redacting text from PDF files"
+requires-python = ">=3.10"
+dependencies = [
+    "PyMuPDF>=1.24.0,<2.0.0",
+]
+
+[project.scripts]
+pdf-redactor = "pdf_redactor.__main__:main"
+
+[project.gui-scripts]
+pdf-redactor-gui = "pdf_redactor.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
