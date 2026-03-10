@@ -5,10 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pdf-redactor"
 version = "1.0.0"
-description = "GUI tool for redacting text from PDF files"
+description = "Permanently redact sensitive text from PDF documents — native macOS app"
 requires-python = ">=3.10"
 dependencies = [
     "PyMuPDF>=1.24.0,<2.0.0",
+    "customtkinter>=5.0.0",
 ]
 
 [project.scripts]

@@ -4,3 +4,14 @@ __pycache__/
 *.egg-info/
 .DS_Store
 .venv/
+build/
+
+# macOS app bundle and installer (distributed as release assets)
+*.app/
+*.dmg
+*.app.zip
+
+# DMG build temporaries
+._build_temp.dmg
+._dmg_staging/
+._dmg_background.png
