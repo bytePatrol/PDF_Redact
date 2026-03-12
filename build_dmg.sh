@@ -91,7 +91,7 @@ hdiutil create \
     -srcfolder "$STAGING" \
     -ov -format UDRW \
     -fs HFS+ \
-    -size 80m \
+    -size 250m \
     "$DMG_TEMP" > /dev/null
 
 # ── 4. Mount ───────────────────────────────────────────────────────────────────
@@ -147,8 +147,36 @@ sleep 1
 # ── 7. Volume icon (set AFTER Finder is done to prevent it being stripped) ─────
 echo "   Setting volume icon…"
 cp "$ICNS" "$MOUNT_PT/.VolumeIcon.icns"
-/usr/bin/SetFile -a C "$MOUNT_PT"               # set kHasCustomIcon on volume
-/usr/bin/SetFile -a V "$MOUNT_PT/.VolumeIcon.icns"  # mark file invisible
+# Set kHasCustomIcon (0x0400) on the volume and kIsInvisible (0x4000) on the
+# icon file via com.apple.FinderInfo xattr — no Xcode/SetFile required.
+python3 - "$MOUNT_PT" "$MOUNT_PT/.VolumeIcon.icns" << 'XATTREOF'
+import subprocess, sys
+
+def get_finder_info(path):
+    r = subprocess.run(['xattr', '-px', 'com.apple.FinderInfo', path],
+                       capture_output=True, text=True)
+    if r.returncode == 0:
+        return bytearray(bytes.fromhex(r.stdout.replace('\n', '').replace(' ', '')))
+    return bytearray(32)
+
+def set_finder_info(path, ba):
+    subprocess.run(['xattr', '-wx', 'com.apple.FinderInfo', ba.hex(), path], check=True)
+
+# Volume: set kHasCustomIcon (bit 10 = 0x0400) in Finder flags at offset 8
+vol = get_finder_info(sys.argv[1])
+flags = (vol[8] << 8 | vol[9]) | 0x0400
+vol[8] = (flags >> 8) & 0xFF
+vol[9] = flags & 0xFF
+set_finder_info(sys.argv[1], vol)
+
+# Icon file: set kIsInvisible (bit 14 = 0x4000) in Finder flags at offset 8
+ico = get_finder_info(sys.argv[2])
+flags = (ico[8] << 8 | ico[9]) | 0x4000
+ico[8] = (flags >> 8) & 0xFF
+ico[9] = flags & 0xFF
+set_finder_info(sys.argv[2], ico)
+print("      volume & icon xattrs set")
+XATTREOF
 echo "      done ($(ls -la "$MOUNT_PT/.VolumeIcon.icns" 2>/dev/null | awk '{print $5}') bytes)"
 
 # ── 8. Unmount ─────────────────────────────────────────────────────────────────
@@ -163,15 +191,13 @@ hdiutil convert "$DMG_TEMP" -format UDZO -imagekey zlib-level=9 -o "$DMG_FINAL" 
 
 # ── 10. Set DMG file icon ──────────────────────────────────────────────────────
 echo "   Setting DMG file icon…"
-python3 - "$DMG_FINAL" "$ICNS" << 'ICONEOF'
-import sys, os
-from AppKit import NSWorkspace, NSImage
-dmg  = os.path.abspath(sys.argv[1])
-icns = os.path.abspath(sys.argv[2])
-img  = NSImage.alloc().initWithContentsOfFile_(icns)
-ok   = NSWorkspace.sharedWorkspace().setIcon_forFile_options_(img, dmg, 0)
-print("      DMG file icon set:", ok)
-ICONEOF
+fileicon set "$DMG_FINAL" "$ICNS"
+echo "      DMG file icon set"
+
+# ── 11. Set .app custom icon bit ───────────────────────────────────────────────
+echo "   Setting .app custom icon…"
+fileicon set "$APP_BUNDLE" "$ICNS"
+echo "      .app icon set"
 
 # ── Cleanup ────────────────────────────────────────────────────────────────────
 rm -f "$DMG_TEMP" "$BG_PNG"
